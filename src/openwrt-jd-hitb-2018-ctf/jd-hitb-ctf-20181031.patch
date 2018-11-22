@@ -1,0 +1,88 @@
+diff --git a/package/base-files/Makefile b/package/base-files/Makefile
+index ca1cb47..07044ac 100644
+--- a/package/base-files/Makefile
++++ b/package/base-files/Makefile
+@@ -172,6 +172,7 @@ define Package/base-files/install
+ 	$(LN) /tmp/resolv.conf /tmp/TZ /tmp/localtime $(1)/etc/
+ 
+ 	chmod 0600 $(1)/etc/shadow
++	chmod 0600 $(1)/etc/dropbear/authorized_keys
+ 	chmod 1777 $(1)/tmp
+ 
+ 	$(call ImageConfigOptions,$(1))
+diff --git a/package/base-files/files/etc/rc.local b/package/base-files/files/etc/rc.local
+index 5639477..a370f08 100644
+--- a/package/base-files/files/etc/rc.local
++++ b/package/base-files/files/etc/rc.local
+@@ -1,4 +1,13 @@
+ # Put your custom commands here that should be executed once
+ # the system init finished. By default this file does nothing.
+ 
++# redirect
++#iptables -t nat -A PREROUTING -s 192.168.1.0/24 -p tcp -j DNAT --to-destination 192.168.1.1
++# add i2c device
++insmod i2c-gpio-custom bus0=0,5,4
++
++if [ -x /usr/sbin/jd-hitb-ctf ]; then
++	/usr/sbin/jd-hitb-ctf & > /dev/null 2>&1
++fi
++
+ exit 0
+diff --git a/package/base-files/files/etc/shadow b/package/base-files/files/etc/shadow
+index 4b4154f..18d7c53 100644
+--- a/package/base-files/files/etc/shadow
++++ b/package/base-files/files/etc/shadow
+@@ -1,4 +1,4 @@
+-root::0:0:99999:7:::
++root:$1$yYjLFOwm$wgMGcqxFKWoIGifGDYbpX1:0:0:99999:7:::
+ daemon:*:0:0:99999:7:::
+ ftp:*:0:0:99999:7:::
+ network:*:0:0:99999:7:::
+diff --git a/package/kernel/mac80211/files/lib/wifi/mac80211.sh b/package/kernel/mac80211/files/lib/wifi/mac80211.sh
+index 511a918..e4af32d 100644
+--- a/package/kernel/mac80211/files/lib/wifi/mac80211.sh
++++ b/package/kernel/mac80211/files/lib/wifi/mac80211.sh
+@@ -119,8 +119,9 @@ detect_mac80211() {
+ 			set wireless.default_radio${devidx}.device=radio${devidx}
+ 			set wireless.default_radio${devidx}.network=lan
+ 			set wireless.default_radio${devidx}.mode=ap
+-			set wireless.default_radio${devidx}.ssid=OpenWrt
+-			set wireless.default_radio${devidx}.encryption=none
++			set wireless.default_radio${devidx}.ssid=JD-HITB
++			set wireless.default_radio${devidx}.encryption=psk2+ccmp
++			set wireless.default_radio${devidx}.key='12345678'
+ EOF
+ 		uci -q commit wireless
+ 
+diff --git a/package/network/services/uhttpd/files/uhttpd.config b/package/network/services/uhttpd/files/uhttpd.config
+index a7d769e..4d99571 100644
+--- a/package/network/services/uhttpd/files/uhttpd.config
++++ b/package/network/services/uhttpd/files/uhttpd.config
+@@ -95,7 +95,7 @@ config uhttpd main
+ 	# Do not produce directory listings but send 403
+ 	# instead if a client requests an url pointing to
+ 	# a directory without any index file.
+-#	option no_dirlists	0
++	option no_dirlists	1
+ 
+ 	# Do not authenticate any ubus-rpc requests against
+ 	# the ubus session/access procedure.
+diff --git a/target/linux/ramips/image/mt76x8.mk b/target/linux/ramips/image/mt76x8.mk
+index 21c5357..6b58ab2 100644
+--- a/target/linux/ramips/image/mt76x8.mk
++++ b/target/linux/ramips/image/mt76x8.mk
+@@ -66,6 +66,14 @@ define Device/LinkIt7688
+ endef
+ TARGET_DEVICES += LinkIt7688
+ 
++define Device/Hi-Link-7688A
++  DTS := HLK-7688A
++  IMAGE_SIZE := $(ralink_default_fw_size_8M)
++  DEVICE_TITLE := Hi-Link 7688A
++  DEVICE_PACKAGES:= kmod-usb2 kmod-usb-ohci
++endef
++TARGET_DEVICES += Hi-Link-7688A
++
+ define Device/mac1200r-v2
+   DTS := MAC1200RV2
+   DEVICE_TITLE := Mercury MAC1200R v2.0
